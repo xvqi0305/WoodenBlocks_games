@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>木块拼图 (Wooden Blocks)</title>
+    <link rel="stylesheet" href="src/assets/css/style.css">
+</head>
+<body>
+    <div id="game-container">
+        <div id="game-header">
+            <div id="score-container">
+                <div id="score-label">分数</div>
+                <div id="score-value">0</div>
+            </div>
+            <div id="streak-container">
+                <div id="streak-label">连续消除</div>
+                <div id="streak-value">0</div>
+            </div>
+        </div>
+        
+        <div id="game-board">
+            <!-- 9x9网格将由JavaScript动态生成 -->
+        </div>
+        
+        <div id="blocks-selection">
+            <div class="block-slot" id="block-slot-0"></div>
+            <div class="block-slot" id="block-slot-1"></div>
+            <div class="block-slot" id="block-slot-2"></div>
+        </div>
+        
+        <div id="game-controls">
+            <button id="new-game-btn">新游戏</button>
+            <button id="help-btn">帮助</button>
+        </div>
+    </div>
+    
+    <!-- 游戏结束对话框 -->
+    <div id="game-over-dialog" class="dialog hidden">
+        <div class="dialog-content">
+            <h2>游戏结束</h2>
+            <p>你的得分: <span id="final-score">0</span></p>
+            <p>最高分: <span id="high-score">0</span></p>
+            <button id="play-again-btn">再玩一次</button>
+        </div>
+    </div>
+    
+    <!-- 帮助对话框 -->
+    <div id="help-dialog" class="dialog hidden">
+        <div class="dialog-content">
+            <h2>游戏规则</h2>
+            <p>1. 拖动方块放置到9x9网格中的空白位置</p>
+            <p>2. 填满一整行、一整列或一个3x3区域可以消除并得分</p>
+            <p>3. 同时消除多个区域可获得额外分数</p>
+            <p>4. 连续消除可获得额外奖励</p>
+            <p>5. 当无法放置任何方块时游戏结束</p>
+            <button id="close-help-btn">关闭</button>
+        </div>
+    </div>
+    
+    <!-- 游戏脚本 -->
+    <script type="module" src="src/game/main.js"></script>
+</body>
+</html>

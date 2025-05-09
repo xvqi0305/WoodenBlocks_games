@@ -1,0 +1,5 @@
+# 这是一个基于纯HTML/CSS/JavaScript的前端项目
+# 不需要额外的Python依赖
+# 如果需要本地服务器运行，可以使用以下工具之一：
+# - Python的http.server模块
+# - Node.js的http-server包

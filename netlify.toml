@@ -1,0 +1,11 @@
+# Basic Netlify config for a static site
+[build]
+  # Directory to deploy.
+  publish = "." # 使用相对路径，表示当前目录（项目根目录）
+  # Default build command.
+  # command = "" # 不需要构建命令，这是一个静态网站
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
