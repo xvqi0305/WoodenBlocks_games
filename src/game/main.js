@@ -33,12 +33,35 @@ class Game {
         this.helpBtn = document.getElementById('help-btn');
         this.closeHelpBtn = document.getElementById('close-help-btn');
         
+        // 音乐相关
+        this.backgroundMusic = document.getElementById('background-music');
+        this.musicToggleButton = document.getElementById('music-toggle-btn');
+        this.isMusicPlaying = false; // 初始假定音乐关闭，下面尝试开启
+
+        if (this.backgroundMusic && this.musicToggleButton) {
+            // 尝试默认播放音乐
+            this.backgroundMusic.play().then(() => {
+                this.isMusicPlaying = true;
+                this.musicToggleButton.textContent = '音乐关'; // 音乐正在播放，按钮显示“关”
+            }).catch(error => {
+                // 大多数浏览器在用户首次与页面交互前会阻止自动播放
+                console.warn("背景音乐自动播放失败 (这通常是正常的，需要用户交互才能播放):", error.name, error.message);
+                this.isMusicPlaying = false;
+                this.musicToggleButton.textContent = '音乐开'; // 音乐未播放，按钮显示“开”
+            });
+        } else {
+            // 如果元素未找到，确保按钮文本是合理的默认值
+            if (this.musicToggleButton) {
+                this.musicToggleButton.textContent = '音乐开';
+            }
+        }
+
         // 拖拽相关
         this.draggedBlock = null;
         this.draggedBlockType = null;
         this.draggedBlockIndex = null;
-        this.dragStartX = 0;
-        this.dragStartY = 0;
+        this.initialGridX = 0;  // 初始网格X坐标
+        this.initialGridY = 0;  // 初始网格Y坐标
         this.previewElement = null;
         
         // 计算单元格大小
@@ -212,150 +235,117 @@ class Game {
     addDragListeners(blockElement) {
         // 触摸设备的拖拽
         blockElement.addEventListener('touchstart', (e) => {
-            // 只有在主触摸点上才处理
             if (e.touches.length === 1) {
-                e.preventDefault();
-                this.handleDragStart(blockElement, e.touches[0].clientX, e.touches[0].clientY);
+                const touch = e.touches[0];
+                this.handleDragStart(blockElement, touch.clientX, touch.clientY);
             }
+            e.preventDefault(); // 防止默认触摸行为，如页面滚动
         }, { passive: false });
-        
-        // 鼠标拖拽
+
+        // 鼠标设备的拖拽
         blockElement.addEventListener('mousedown', (e) => {
-            // 只处理左键点击
-            if (e.button === 0) {
-                e.preventDefault();
+            if (e.button === 0) { // 仅处理鼠标左键
                 this.handleDragStart(blockElement, e.clientX, e.clientY);
             }
+            e.preventDefault(); // 防止默认鼠标行为，如文本选择
         });
     }
-    
+
     // 处理拖拽开始
     handleDragStart(blockElement, clientX, clientY) {
-        // 获取方块类型和索引
         this.draggedBlockType = blockElement.dataset.blockType;
         this.draggedBlockIndex = parseInt(blockElement.dataset.blockIndex);
         
-        console.log(`开始拖拽方块: 类型=${this.draggedBlockType}, 索引=${this.draggedBlockIndex}`);
+        // console.log(`开始拖拽方块: 类型=${this.draggedBlockType}, 索引=${this.draggedBlockIndex}`);
         
-        // 验证方块类型是否存在于可用方块列表中
         if (!this.gameState.availableBlocks.includes(this.draggedBlockType)) {
             console.error(`方块类型 ${this.draggedBlockType} 不在可用方块列表中!`);
             return;
         }
-        
-        // 验证方块形状是否存在
-        if (!BLOCK_SHAPES[this.draggedBlockType]) {
+        const shapeDetails = BLOCK_SHAPES[this.draggedBlockType];
+        if (!shapeDetails) {
             console.error(`方块形状 ${this.draggedBlockType} 不存在!`);
             return;
         }
         
-        // 创建拖拽中的方块元素 - 使用与游戏板相同的格子大小
         this.draggedBlock = createBlockElement(this.draggedBlockType, this.cellSize, false);
-        this.draggedBlock.style.position = 'absolute'; // 改为absolute以便与预览重合
+        this.draggedBlock.style.position = 'fixed';
         this.draggedBlock.style.zIndex = '1000';
-        this.draggedBlock.style.opacity = '0.9';
-        this.draggedBlock.style.pointerEvents = 'none';
+        this.draggedBlock.style.opacity = '0.8';
+        this.draggedBlock.style.pointerEvents = 'none'; // 允许事件穿透
         
-        // 获取网格位置
         const boardRect = this.gameBoard.getBoundingClientRect();
-        const gridX = Math.floor((clientX - boardRect.left) / this.cellSize);
-        const gridY = Math.floor((clientY - boardRect.top) / this.cellSize);
+        // 计算控制点（鼠标/触摸）所在的网格坐标
+        const controlGridX = Math.floor((clientX - boardRect.left) / this.cellSize);
+        const controlGridY = Math.floor((clientY - boardRect.top) / this.cellSize);
         
-        // 获取方块的宽度和高度
-        const blockShape = BLOCK_SHAPES[this.draggedBlockType];
-        const blockWidthInCells = blockShape.width;
-        const blockHeightInCells = blockShape.height;
+        const blockWidth = shapeDetails.width;
+        const blockHeight = shapeDetails.height;
         
-        // 计算左上角网格位置
-        const placeGridX = gridX - blockWidthInCells + 1;
-        const placeGridY = gridY - blockHeightInCells + 1;
+        // 计算方块左上角应在的网格坐标 (使控制点在方块右下角)
+        const placeGridX = controlGridX - blockWidth + 1;
+        const placeGridY = controlGridY - blockHeight + 1;
         
-        // 先创建预览，这样拖动的方块可以与预览重合
-        this.updateBlockPreview(placeGridX, placeGridY);
+        this.initialGridX = placeGridX; // 保存用于可能的复位或逻辑
+        this.initialGridY = placeGridY;
         
-        // 如果预览元素存在，将拖动的方块与预览重合
-        if (this.previewElement) {
-            const previewRect = this.previewElement.getBoundingClientRect();
-            this.draggedBlock.style.left = `${previewRect.left}px`;
-            this.draggedBlock.style.top = `${previewRect.top}px`;
-        } else {
-            // 如果没有预览元素，使用传统方式定位
-            const left = boardRect.left + placeGridX * this.cellSize;
-            const top = boardRect.top + placeGridY * this.cellSize;
-            this.draggedBlock.style.left = `${left}px`;
-            this.draggedBlock.style.top = `${top}px`;
-        }
+        // 定位拖拽的方块，使其中心大致在鼠标/触摸点下方
+        this.draggedBlock.style.left = `${clientX - (this.cellSize * blockWidth / 2)}px`;
+        this.draggedBlock.style.top = `${clientY - (this.cellSize * blockHeight / 2)}px`;
         
-        // 添加到文档
         document.body.appendChild(this.draggedBlock);
+        this.updateBlockPreview(placeGridX, placeGridY); // 预览基于计算的放置点
         
-        // 添加移动和结束事件监听器
-        document.addEventListener('mousemove', this.handleDragMove, { passive: false });
+        // 添加全局事件监听器以处理拖拽过程和结束
+        document.addEventListener('mousemove', this.handleDragMove);
         document.addEventListener('touchmove', this.handleTouchMove, { passive: false });
         document.addEventListener('mouseup', this.handleDragEnd);
         document.addEventListener('touchend', this.handleDragEnd);
     }
-    
+
     // 处理拖拽移动
     handleDragMove = (e) => {
         if (!this.draggedBlock) return;
         
-        const clientX = e.clientX || (e.touches && e.touches[0].clientX);
-        const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+        const clientX = e.clientX || (e.touches && e.touches[0] && e.touches[0].clientX);
+        const clientY = e.clientY || (e.touches && e.touches[0] && e.touches[0].clientY);
         
-        if (!clientX || !clientY) return;
+        if (typeof clientX === 'undefined' || typeof clientY === 'undefined') return;
         
-        // 阻止触摸事件的默认行为（滚动）
-        if (e.type === 'touchmove') {
-            e.preventDefault();
-        }
-        
-        // 获取网格位置 - 控制点位于方块的右下角
-        const boardRect = this.gameBoard.getBoundingClientRect();
-        const gridX = Math.floor((clientX - boardRect.left) / this.cellSize);
-        const gridY = Math.floor((clientY - boardRect.top) / this.cellSize);
-        
-        // 获取方块的宽度和高度
-        const blockShape = BLOCK_SHAPES[this.draggedBlockType];
-        const blockWidthInCells = blockShape.width;
-        const blockHeightInCells = blockShape.height;
-        
-        // 计算左上角网格位置
-        const placeGridX = gridX - blockWidthInCells + 1;
-        const placeGridY = gridY - blockHeightInCells + 1;
-        
-        // 更新预览 - 使用左上角位置
-        this.updateBlockPreview(placeGridX, placeGridY);
-        
-        // 更新拖拽中方块的位置 - 与预览位置完全一致
-        if (this.draggedBlock && this.previewElement) {
-            // 获取预览元素的位置
-            const previewRect = this.previewElement.getBoundingClientRect();
+        const shapeDetails = BLOCK_SHAPES[this.draggedBlockType];
+        if (shapeDetails) {
+             // 1. 更新被拖拽木块的屏幕位置 (使其中心大致跟随指针)
+            const blockPixelWidth = this.cellSize * shapeDetails.width;
+            const blockPixelHeight = this.cellSize * shapeDetails.height;
+            const draggedBlockScreenX = clientX - (blockPixelWidth / 2);
+            const draggedBlockScreenY = clientY - (blockPixelHeight / 2);
             
-            // 将拖动的方块位置设置为与预览完全重合
-            this.draggedBlock.style.position = 'absolute';
-            this.draggedBlock.style.left = `${previewRect.left}px`;
-            this.draggedBlock.style.top = `${previewRect.top}px`;
+            this.draggedBlock.style.left = `${draggedBlockScreenX}px`;
+            this.draggedBlock.style.top = `${draggedBlockScreenY}px`;
+
+            // 2. 计算虚影的像素位置：实体木块位置 + 微小右下偏移
+            const shadowOffsetX = 5; // 右偏移量 (像素)
+            const shadowOffsetY = 5; // 下偏移量 (像素)
+            const shadowScreenX = draggedBlockScreenX + shadowOffsetX;
+            const shadowScreenY = draggedBlockScreenY + shadowOffsetY;
+
+            // 3. 将虚影的像素位置转换为游戏板网格坐标 (使其对齐格子)
+            const boardRect = this.gameBoard.getBoundingClientRect();
+            const previewPlaceGridX = Math.round((shadowScreenX - boardRect.left) / this.cellSize);
+            const previewPlaceGridY = Math.round((shadowScreenY - boardRect.top) / this.cellSize);
             
-            // 确保拖拽元素跟随预览对齐
-            requestAnimationFrame(() => {
-                if (this.draggedBlock && this.previewElement) {
-                    const updatedPreviewRect = this.previewElement.getBoundingClientRect();
-                    this.draggedBlock.style.left = `${updatedPreviewRect.left}px`;
-                    this.draggedBlock.style.top = `${updatedPreviewRect.top}px`;
-                }
-            });
+            // 4. 更新预览
+            this.updateBlockPreview(previewPlaceGridX, previewPlaceGridY);
         }
     }
-    
+
     // 处理触摸移动
     handleTouchMove = (e) => {
-        // 只有当我们正在拖拽时才阻止默认行为
         if (this.draggedBlock) {
             e.preventDefault(); // 阻止滚动
         }
-        
-        if (e.touches && e.touches[0]) {
+        // 直接将触摸事件对象传递给 handleDragMove，它能从中提取坐标
+        if (e.touches && e.touches.length > 0) { 
             this.handleDragMove(e);
         }
     }
@@ -364,38 +354,80 @@ class Game {
     handleDragEnd = (e) => {
         if (!this.draggedBlock) return;
         
-        // 获取最后的位置
-        const clientX = e.clientX || (e.changedTouches && e.changedTouches[0].clientX);
-        const clientY = e.clientY || (e.changedTouches && e.changedTouches[0].clientY);
-        
-        if (clientX && clientY) {
-            // 获取网格位置 - 控制点位于方块的右下角
-            const boardRect = this.gameBoard.getBoundingClientRect();
-            const gridX = Math.floor((clientX - boardRect.left) / this.cellSize);
-            const gridY = Math.floor((clientY - boardRect.top) / this.cellSize);
-            
-            // 获取方块的宽度和高度
-            const blockShape = BLOCK_SHAPES[this.draggedBlockType];
-            const blockWidthInCells = blockShape.width;
-            const blockHeightInCells = blockShape.height;
-            
-            // 计算左上角网格位置
-            const placeGridX = gridX - blockWidthInCells + 1;
-            const placeGridY = gridY - blockHeightInCells + 1;
-            
-            console.log(`尝试放置: 控制点=(${gridX},${gridY}), 实际放置点=(${placeGridX},${placeGridY})`);
-            
-            // 尝试放置方块
-            if (
-                placeGridX >= 0 && placeGridX < 9 && 
-                placeGridY >= 0 && placeGridY < 9 &&
-                this.gameState.isValidPlacement(this.draggedBlockType, placeGridX, placeGridY)
-            ) {
-                this.placeBlock(placeGridX, placeGridY);
+        let clientX, clientY;
+
+        if (e.type === 'mouseup') {
+            clientX = e.clientX;
+            clientY = e.clientY;
+        } else if (e.type === 'touchend') {
+            if (e.changedTouches && e.changedTouches.length > 0) {
+                clientX = e.changedTouches[0].clientX;
+                clientY = e.changedTouches[0].clientY;
+            } else {
+                console.warn("Touchend event did not have changedTouches.");
+                this.cleanupDrag();
+                document.removeEventListener('mousemove', this.handleDragMove);
+                document.removeEventListener('touchmove', this.handleTouchMove);
+                document.removeEventListener('mouseup', this.handleDragEnd);
+                document.removeEventListener('touchend', this.handleDragEnd);
+                return;
             }
+        } else {
+            console.error("Unknown event type in handleDragEnd:", e.type);
+            this.cleanupDrag();
+            document.removeEventListener('mousemove', this.handleDragMove);
+            document.removeEventListener('touchmove', this.handleTouchMove);
+            document.removeEventListener('mouseup', this.handleDragEnd);
+            document.removeEventListener('touchend', this.handleDragEnd);
+            return;
         }
         
-        // 清理拖拽状态
+        if (typeof clientX === 'undefined' || typeof clientY === 'undefined') {
+            console.warn("Could not determine clientX/Y in handleDragEnd after type check.");
+            this.cleanupDrag();
+            document.removeEventListener('mousemove', this.handleDragMove);
+            document.removeEventListener('touchmove', this.handleTouchMove);
+            document.removeEventListener('mouseup', this.handleDragEnd);
+            document.removeEventListener('touchend', this.handleDragEnd);
+            return;
+        }
+
+        let placementSuccess = false;
+        const boardRect = this.gameBoard.getBoundingClientRect();
+        const shapeDetails = BLOCK_SHAPES[this.draggedBlockType];
+
+        if (shapeDetails) {
+             // ----- 开始新的最终放置位置计算 -----
+            // 根据最终的指针位置，计算实体木块本应在的屏幕左上角像素坐标
+            const finalDraggedBlockScreenX = clientX - (this.cellSize * shapeDetails.width / 2);
+            const finalDraggedBlockScreenY = clientY - (this.cellSize * shapeDetails.height / 2);
+
+            // 计算这个屏幕坐标对应的游戏板网格左上角 (用于最终放置)
+            const placeGridX = Math.round((finalDraggedBlockScreenX - boardRect.left) / this.cellSize);
+            const placeGridY = Math.round((finalDraggedBlockScreenY - boardRect.top) / this.cellSize);
+            // ----- 结束新的最终放置位置计算 -----
+            
+            // console.log(`尝试放置: 最终计算放置点=(${placeGridX},${placeGridY})`);
+
+            const blockWidthInCells = shapeDetails.width; // 已有 blockWidth
+            const blockHeightInCells = shapeDetails.height; // 已有 blockHeight
+            
+            const isInBoard = 
+                placeGridX >= 0 && (placeGridX + blockWidthInCells) <= 9 && 
+                placeGridY >= 0 && (placeGridY + blockHeightInCells) <= 9;
+            
+            const isValid = isInBoard && this.gameState.isValidPlacement(this.draggedBlockType, placeGridX, placeGridY);
+            
+            // console.log(`放置检查: 在板内=${isInBoard}, 有效=${isValid}`);
+            
+            if (isValid) {
+                placementSuccess = this.placeBlock(placeGridX, placeGridY);
+                // console.log(`放置结果: ${placementSuccess ? '成功' : '失败'}`);
+            }
+        } else {
+            console.error(`无法获取方块形状: ${this.draggedBlockType}`);
+        }
+        
         this.cleanupDrag();
         
         // 移除事件监听器
@@ -430,29 +462,19 @@ class Game {
         // 创建预览元素
         this.previewElement = createBlockElement(this.draggedBlockType, this.cellSize, true, isValid);
         
-        // 获取网格位置的坐标
+        // 获取网格位置的坐标，考虑页面滚动
         const boardRect = this.gameBoard.getBoundingClientRect();
-        const left = boardRect.left + gridX * this.cellSize;
-        const top = boardRect.top + gridY * this.cellSize;
         
         // 设置预览元素的位置
-        this.previewElement.style.position = 'absolute';
-        this.previewElement.style.left = `${left}px`;
-        this.previewElement.style.top = `${top}px`;
+        this.previewElement.style.position = 'fixed';
+        this.previewElement.style.left = `${boardRect.left + gridX * this.cellSize}px`;
+        this.previewElement.style.top = `${boardRect.top + gridY * this.cellSize}px`;
         this.previewElement.style.pointerEvents = 'none';
         this.previewElement.style.opacity = '0.6'; // 降低透明度，使拖动的方块更明显
         this.previewElement.dataset.previewType = this.draggedBlockType;
         
         // 添加到文档
         document.body.appendChild(this.previewElement);
-        
-        // 如果有拖动的方块，立即更新其位置与预览重合
-        if (this.draggedBlock) {
-            const previewRect = this.previewElement.getBoundingClientRect();
-            this.draggedBlock.style.position = 'absolute';
-            this.draggedBlock.style.left = `${previewRect.left}px`;
-            this.draggedBlock.style.top = `${previewRect.top}px`;
-        }
     }
     
     // 清理预览
@@ -482,21 +504,21 @@ class Game {
         this.draggedBlockIndex = null;
     }
     
-    // 放置方块
+    // 放置方块 - 返回是否成功放置
     placeBlock(gridX, gridY) {
         console.log(`尝试放置方块: 类型=${this.draggedBlockType}, 位置=(${gridX},${gridY})`);
         
         // 验证方块类型是否有效
         if (!this.draggedBlockType || !BLOCK_SHAPES[this.draggedBlockType]) {
             console.error(`无效的方块类型: ${this.draggedBlockType}`);
-            return;
+            return false;
         }
         
         // 验证索引是否有效
         if (this.draggedBlockIndex === undefined || this.draggedBlockIndex < 0 || 
             this.draggedBlockIndex >= this.gameState.availableBlocks.length) {
             console.error(`无效的方块索引: ${this.draggedBlockIndex}`);
-            return;
+            return false;
         }
         
         // 确保使用正确的方块类型
@@ -528,6 +550,9 @@ class Game {
         } else {
             console.error(`方块放置失败`);
         }
+        
+        // 返回放置结果
+        return success;
     }
     
     // 显示放置动画
@@ -645,6 +670,29 @@ class Game {
         // 由于简化实现，暂不添加音效
     }
     
+    // 切换背景音乐播放状态
+    toggleMusic() {
+        if (!this.backgroundMusic || !this.musicToggleButton) {
+            console.warn('音乐元素或按钮未找到');
+            return;
+        }
+
+        if (this.isMusicPlaying) { // 如果当前正在播放，则用户意图是暂停
+            this.backgroundMusic.pause();
+            this.isMusicPlaying = false; // 更新状态：现在已暂停
+            this.musicToggleButton.textContent = '音乐开';
+        } else { // 如果当前已暂停，则用户意图是播放
+            this.backgroundMusic.play().then(() => {
+                this.isMusicPlaying = true; // 更新状态：现在正在播放
+                this.musicToggleButton.textContent = '音乐关';
+            }).catch(error => {
+                console.error("音乐播放失败:", error);
+                // isMusicPlaying 状态保持 false (因为播放失败)
+                this.musicToggleButton.textContent = '音乐开'; // 确保按钮文本反映暂停状态
+            });
+        }
+    }
+    
     // 显示游戏结束对话框
     showGameOver() {
         this.finalScore.textContent = this.gameState.score;
@@ -678,6 +726,11 @@ class Game {
         this.closeHelpBtn.addEventListener('click', () => {
             this.helpDialog.classList.add('hidden');
         });
+        
+        // 音乐切换按钮
+        if (this.musicToggleButton) {
+            this.musicToggleButton.addEventListener('click', () => this.toggleMusic());
+        }
     }
 }
 

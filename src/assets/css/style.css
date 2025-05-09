@@ -170,6 +170,8 @@ body {
     margin-top: 10px;
 }
 
+/* 音乐控制按钮现在使用与其他按钮相同的样式 */
+
 button {
     background-color: #86BD42; /* 主元素色选项5 */
     color: white;
@@ -284,6 +286,12 @@ button:active {
     button {
         padding: 8px 16px;
         font-size: 14px;
+    }
+    
+    .music-btn {
+        width: 36px;
+        height: 36px;
+        font-size: 18px;
     }
 }
 
