@@ -1,0 +1,351 @@
+/* 全局样式 */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    font-family: 'PingFang SC', 'Helvetica Neue', Arial, sans-serif;
+    background-color: #FAF4E3; /* 背景色 */
+    color: #2F2F30; /* 黑色 */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 10px;
+}
+
+/* 游戏容器 */
+#game-container {
+    width: 100%;
+    max-width: 500px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+}
+
+/* 游戏头部 - 分数和连续消除 */
+#game-header {
+  display: flex;
+  justify-content: center; /* 使内部的得分/连续消除项在其内部居中 */
+  align-items: stretch;    /* 使得分/连续消除项等高 */
+  gap: 15px;               /* 得分和连续消除项之间的间距 */
+  width: 100%;             /* 容器宽度占满可用空间 */
+  max-width: 325px;        /* 最大宽度与游戏棋盘一致 */
+  margin-left: auto;       /* #game-header 块本身在其父容器中居中 */
+  margin-right: auto;      /* #game-header 块本身在其父容器中居中 */
+  margin-top: 10px;        /* 顶部外边距 */
+  margin-bottom: 20px;     /* 底部外边距，位于游戏棋盘上方 */
+  box-sizing: border-box;  /* padding 和 border 不会增加元素的总宽度/高度 */
+}
+
+#score-container,
+#streak-container {
+  /* Width changed to fixed 115px */
+  width: 115px; 
+  padding: 10px 0;             /* 上下内边距 */
+  border-radius: 8px;          /* 圆角 */
+  text-align: center;          /* 文本居中 */
+  font-size: 14px;             /* 基本字号 */
+  color: #2F2F30;              /* UI调色板中的深色文本 (2F2F30) */
+  box-sizing: border-box;      /* padding 和 border 不会增加元素的总宽度/高度 */
+  line-height: 1.3;            /* 调整行高以改善文本外观 */
+}
+
+#score-container {
+  background-color: rgba(14, 21, 132, 0.4); /* #0E1584 with 40% opacity */
+  border: 3px solid #FFFFFF;   /* 3px white border */
+}
+
+#streak-container {
+  background-color: rgba(190, 58, 130, 0.5); /* #BE3A82 with 50% opacity */
+  border: 3px solid #FFFFFF;   /* 3px white border */
+}
+
+#score-label, #streak-label {
+    font-size: 14px;
+    color: #FFFFFF; /* 白色 */
+}
+
+#score-value, #streak-value {
+    font-size: 24px;
+    font-weight: bold;
+    color: #FFFFFF; /* 白色 */
+}
+
+/* 游戏棋盘 */
+#game-board {
+    width: 100%;
+    aspect-ratio: 1/1;
+    background-color: #FFFFFF; /* 白色 */
+    border: 6px solid rgba(98, 158, 18, 1); /* 绿色边框 */
+    border-radius: 10px;
+    display: grid;
+    grid-template-columns: repeat(9, 1fr);
+    grid-template-rows: repeat(9, 1fr);
+    gap: 1px;
+    position: relative;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.grid-cell {
+    background-color: #F5F5FF; /* 背景色 */
+    border: 1px solid #D4D2D9; /* 灰色 */
+    position: relative;
+}
+
+/* 3x3子区域的视觉区分 */
+/* 为奇偶子区域设置不同的背景色 */
+.subgrid-even {
+    background-color: #EEFFD9; /* 浅绿色背景 */
+}
+
+.subgrid-odd {
+    background-color: #F5F5FF; /* 浅蓝色背景 */
+}
+
+/* 子区域边框增强 */
+.grid-cell {
+    position: relative;
+}
+
+/* 左边界 */
+.grid-cell[data-x="0"],
+.grid-cell[data-x="3"],
+.grid-cell[data-x="6"] {
+    border-left: 2px solid #629E12; /* 绿色边框 */
+}
+
+/* 右边界 */
+.grid-cell[data-x="2"],
+.grid-cell[data-x="5"],
+.grid-cell[data-x="8"] {
+    border-right: 2px solid #629E12; /* 绿色边框 */
+}
+
+/* 上边界 */
+.grid-cell[data-y="0"],
+.grid-cell[data-y="3"],
+.grid-cell[data-y="6"] {
+    border-top: 2px solid #629E12; /* 绿色边框 */
+}
+
+/* 下边界 */
+.grid-cell[data-y="2"],
+.grid-cell[data-y="5"],
+.grid-cell[data-y="8"] {
+    border-bottom: 2px solid #629E12; /* 绿色边框 */
+}
+
+/* 方块选择区域 */
+#blocks-selection {
+    width: 100%;
+    display: flex;
+    justify-content: space-around;
+    margin: 15px 0;
+}
+
+.block-slot {
+    width: 30%;
+    aspect-ratio: 1/1;
+    background-color: #FFFFFF; /* 白色 */
+    border: 2px solid #D4D2D9; /* 灰色 */
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+/* 方块单元格样式 */
+.block-cell {
+    position: absolute;
+    background-color: #F555AD; /* 粉色 - 默认颜色，会被JS覆盖 */
+    border: 3px solid #BE3A82; /* 深粉色边框, 宽度改为3px */
+    border-radius: 5px; /* 圆角改为5px */
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+/* 预览/Ghost效果 */
+.preview-valid {
+    background-color: rgba(134, 189, 66, 0.5); /* 绿色半透明 */
+    border: 1px solid #629E12; /* 深绿色边框 */
+}
+
+.preview-invalid {
+    background-color: rgba(250, 80, 83, 0.5); /* 红色半透明 */
+    border: 1px solid #DE3638; /* 深红色边框 */
+}
+
+/* 游戏控制按钮 */
+#game-controls {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    margin-top: 10px;
+}
+
+#controls-right {
+    display: flex;
+    gap: 10px;
+}
+
+button {
+    background-color: #86BD42; /* 绿色 */
+    color: white;
+    border: none;
+    border-radius: 20px;
+    padding: 10px 20px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    transition: all 0.2s ease;
+}
+
+button:hover {
+    background-color: #629E12; /* 深绿色 */
+    transform: translateY(-2px);
+}
+
+button:active {
+    transform: translateY(1px);
+}
+
+/* 对话框样式 */
+.dialog {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.dialog-content {
+    background-color: #FFFFFF; /* 白色 */
+    border-radius: 15px;
+    padding: 20px;
+    width: 80%;
+    max-width: 400px;
+    text-align: center;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+.dialog h2 {
+    color: #2F2F30; /* 黑色 */
+    margin-bottom: 15px;
+}
+
+.dialog p {
+    margin: 10px 0;
+    font-size: 16px;
+    color: #2F2F30; /* 黑色 */
+}
+
+.dialog button {
+    margin-top: 15px;
+    background-color: #F99825; /* 黄色 */
+    color: #FFFFFF; /* 白色 */
+}
+
+.dialog button:hover {
+    background-color: #E06917; /* 深黄色 */
+}
+
+#close-help-btn {
+    background-color: #F99825; /* 黄色 */
+}
+
+.hidden {
+    display: none;
+}
+
+/* 动画效果 */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes scaleUp {
+    from { transform: scale(0.8); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes highlight {
+    0% { background-color: rgba(134, 189, 66, 0.2); }
+    50% { background-color: rgba(134, 189, 66, 0.8); }
+    100% { background-color: rgba(134, 189, 66, 0.2); }
+}
+
+.fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.scale-up {
+    animation: scaleUp 0.3s ease-in-out;
+}
+
+.highlight {
+    animation: highlight 0.5s ease-in-out;
+}
+
+/* 响应式设计 */
+@media (max-width: 500px) {
+    #game-header {
+        flex-direction: row;
+    }
+    
+    #score-container, #streak-container {
+        padding: 5px 10px;
+    }
+    
+    #score-label, #streak-label {
+        font-size: 12px;
+    }
+    
+    #score-value, #streak-value {
+        font-size: 20px;
+    }
+    
+    button {
+        padding: 8px 16px;
+        font-size: 14px;
+    }
+}
+
+/* 消除动画 */
+@keyframes clear {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.1); opacity: 0.5; }
+    100% { transform: scale(0); opacity: 0; }
+}
+
+.clear-animation {
+    animation: clear 0.4s ease-in-out forwards;
+}
+
+/* 分数增加动画 */
+@keyframes scoreIncrease {
+    0% { transform: translateY(0) scale(1); opacity: 1; }
+    50% { transform: translateY(-20px) scale(1.5); opacity: 1; }
+    100% { transform: translateY(-40px) scale(1); opacity: 0; }
+}
+
+.score-increase {
+    position: absolute;
+    color: #86BD42; /* 绿色 */
+    font-weight: bold;
+    pointer-events: none;
+    animation: scoreIncrease 1s ease-out forwards;
+}
